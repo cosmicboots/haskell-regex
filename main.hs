@@ -1,3 +1,4 @@
+import Data.Char
 import System.Environment
 
 -- Lexer tokens
@@ -20,6 +21,8 @@ data RegEx
   | Literal Char
   | Concat RegEx RegEx
   | Wildcard
+  | CaptureGroup RegEx
+  | CaptureReplace Int
   deriving (Show)
 
 lexer :: String -> [Token]
@@ -43,6 +46,8 @@ sr (LPar : Backslash : s) q = sr (PE (Literal '(') : s) q
 sr (RPar : Backslash : s) q = sr (PE (Literal ')') : s) q
 sr (LBracket : Backslash : s) q = sr (PE (Literal '[') : s) q
 sr (RBracket : Backslash : s) q = sr (PE (Literal ']') : s) q
+-- Capture groups
+sr (LiteralT d : Backslash : s) q | isDigit d = sr (PE (CaptureReplace (digitToInt d)) : s) q
 -- Repeats
 sr (StarOp : PE t : s) q = sr (PE (Star t) : s) q
 sr (PlusOp : PE t : s) q = sr (PE (Concat t (Star t)) : s) q -- Use star for plus
@@ -61,8 +66,10 @@ parse t = case sr [] t of
   s -> error $ "Failed to parse: " ++ show s
 
 replace :: RegEx -> RegEx -> String -> String
--- Preform the actual replacement. 
+-- Preform the actual replacement.
 -- This function can assume the string given is a complete match
+--
+-- This function will also handle caputure groups
 replace = error "Not implemented yet"
 
 match :: RegEx -> RegEx -> String -> String
@@ -76,9 +83,9 @@ match :: RegEx -> RegEx -> String -> String
 match = error "Not implemented yet"
 
 replaceLine :: RegEx -> RegEx -> String -> String
-replaceLine e r s@(x:xs) = case match e r s of
-    "" -> x : replaceLine e r xs -- No match. Move on
-    x -> x
+replaceLine e r s@(x : xs) = case match e r s of
+  "" -> x : replaceLine e r xs -- No match. Move on
+  x -> x
 
 main :: IO ()
 main = do
