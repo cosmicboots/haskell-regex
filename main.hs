@@ -57,13 +57,37 @@ sr s [] = s
 
 parse :: [Token] -> RegEx
 parse t = case sr [] t of
-    [PE e] -> e
-    s -> error $ "Failed to parse: " ++ show s
+  [PE e] -> e
+  s -> error $ "Failed to parse: " ++ show s
+
+replace :: RegEx -> RegEx -> String -> String
+-- Preform the actual replacement. 
+-- This function can assume the string given is a complete match
+replace = error "Not implemented yet"
+
+match :: RegEx -> RegEx -> String -> String
+-- match will iterate through the given string and find the end of the match to
+-- the regular expression
+--
+-- Once the end of the match is found, it will call the replace function to
+-- preform the replacement
+--
+-- If the match function doesn't find a complete match, it will return ""
+match = error "Not implemented yet"
+
+replaceLine :: RegEx -> RegEx -> String -> String
+replaceLine e r s@(x:xs) = case match e r s of
+    "" -> x : replaceLine e r xs -- No match. Move on
+    x -> x
 
 main :: IO ()
 main = do
-    args@[search, replace, filename] <- getArgs
-    let x = parse $ lexer search
-    print x
-
-
+  args@[search, replace, filename] <- getArgs
+  let search_term = parse $ lexer search
+  putStrLn $ "Replacing: " ++ show search_term
+  let replace_term = parse $ lexer replace
+  putStrLn $ "With: " ++ show replace_term
+  content <- readFile filename
+  let text = lines content
+  let replaced = map (replaceLine search_term replace_term) text
+  putStrLn $ unlines replaced
