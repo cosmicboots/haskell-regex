@@ -14,7 +14,7 @@ data Token
   | Backslash
   | StarOp
   | PlusOp
-  | PE RegEx
+  | PE [RegEx]
   deriving (Show)
 
 -- Parsed Expression
@@ -46,29 +46,31 @@ lexer (']' : s) = RBracket : lexer s
 lexer (c : s) = LiteralT c : lexer s
 
 sr :: [Token] -> [Token] -> [Token]
--- Handle escaped characters
-sr (WildcardT : Backslash : s) q = sr (PE (Literal '.') : s) q
-sr (StarOp : Backslash : s) q = sr (PE (Literal '*') : s) q
-sr (PlusOp : Backslash : s) q = sr (PE (Literal '+') : s) q
-sr (LPar : Backslash : s) q = sr (PE (Literal '(') : s) q
-sr (RPar : Backslash : s) q = sr (PE (Literal ')') : s) q
-sr (LBracket : Backslash : s) q = sr (PE (Literal '[') : s) q
-sr (RBracket : Backslash : s) q = sr (PE (Literal ']') : s) q
--- Repeats
-sr (StarOp : PE t : s) q = sr (PE (Star t) : s) q
-sr (PlusOp : PE t : s) q = sr (PE (Concat t (Star t)) : s) q -- Use star for plus
--- Wildcard
-sr (WildcardT : s) q = sr (PE Wildcard : s) q
 -- Concat
-sr (PE b : PE a : s) q = sr (PE (Concat a b) : s) q
+sr (PE b : PE a : s) q = sr (PE (a ++ b) : s) q
+-- 
+sr (RPar : PE (e:es) : LPar : s) q = sr (PE [CaptureGroup $ foldl Concat e es] : s) q
+-- Handle escaped characters
+sr (WildcardT : Backslash : s) q = sr (PE [Literal '.'] : s) q
+sr (StarOp : Backslash : s) q = sr (PE [Literal '*'] : s) q
+sr (PlusOp : Backslash : s) q = sr (PE [Literal '+'] : s) q
+sr (LPar : Backslash : s) q = sr (PE [Literal '('] : s) q
+sr (RPar : Backslash : s) q = sr (PE [Literal ')'] : s) q
+sr (LBracket : Backslash : s) q = sr (PE [Literal '['] : s) q
+sr (RBracket : Backslash : s) q = sr (PE [Literal ']'] : s) q
+-- Repeats
+sr (StarOp : PE (x : xs) : s) q = sr (PE (Star x : xs) : s) q
+sr (PlusOp : PE (x : xs) : s) q = sr (PE (Concat x (Star x) : xs) : s) q -- Use star for plus
+-- Wildcard
+sr (WildcardT : s) q = sr (PE [Wildcard] : s) q
 -- Normal Literals
-sr (LiteralT c : s) q = sr (PE (Literal c) : s) q
+sr (LiteralT c : s) q = sr (PE [Literal c] : s) q
 sr s (x : xs) = sr (x : s) xs -- Shift
 sr s [] = s
 
 parseMatch :: [Token] -> RegEx
 parseMatch t = case sr [] t of
-  [PE e] -> e
+  [PE (e:es)] -> foldl Concat e es
   s -> error $ "Failed to parse: " ++ show s
 
 concatTok :: [Token] -> String
