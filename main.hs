@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 import Data.Char
 import System.Environment
 
@@ -22,7 +24,13 @@ data RegEx
   | Concat RegEx RegEx
   | Wildcard
   | CaptureGroup RegEx
-  | CaptureReplace Int
+  deriving (Show)
+
+type ReplaceEx = [ReplaceTok]
+
+data ReplaceTok
+  = LitChar Char
+  | CaptureID Int
   deriving (Show)
 
 lexer :: String -> [Token]
@@ -46,8 +54,6 @@ sr (LPar : Backslash : s) q = sr (PE (Literal '(') : s) q
 sr (RPar : Backslash : s) q = sr (PE (Literal ')') : s) q
 sr (LBracket : Backslash : s) q = sr (PE (Literal '[') : s) q
 sr (RBracket : Backslash : s) q = sr (PE (Literal ']') : s) q
--- Capture groups
-sr (LiteralT d : Backslash : s) q | isDigit d = sr (PE (CaptureReplace (digitToInt d)) : s) q
 -- Repeats
 sr (StarOp : PE t : s) q = sr (PE (Star t) : s) q
 sr (PlusOp : PE t : s) q = sr (PE (Concat t (Star t)) : s) q -- Use star for plus
@@ -60,10 +66,29 @@ sr (LiteralT c : s) q = sr (PE (Literal c) : s) q
 sr s (x : xs) = sr (x : s) xs -- Shift
 sr s [] = s
 
-parse :: [Token] -> RegEx
-parse t = case sr [] t of
+parseMatch :: [Token] -> RegEx
+parseMatch t = case sr [] t of
   [PE e] -> e
   s -> error $ "Failed to parse: " ++ show s
+
+concatTok :: [Token] -> String
+concatTok [] = []
+concatTok (LiteralT x : xs) = x : concatTok xs
+
+parseReplace :: [Token] -> ReplaceEx
+parseReplace [] = []
+parseReplace (Backslash : LiteralT c : s)
+  | isDigit c =
+    let (num, rst) =
+          span
+            ( \case
+                (LiteralT x) | isDigit x -> True
+                _ -> False
+            )
+            s
+     in CaptureID (read (c : concatTok num)) : parseReplace rst
+parseReplace (LiteralT c : s) = LitChar c : parseReplace s
+parseReplace x = error $ "failed to parseReplace: " ++ show x
 
 replace :: RegEx -> RegEx -> String -> String
 -- Preform the actual replacement.
@@ -90,9 +115,9 @@ replaceLine e r s@(x : xs) = case match e r s of
 main :: IO ()
 main = do
   args@[search, replace, filename] <- getArgs
-  let search_term = parse $ lexer search
+  let search_term = parseMatch $ lexer search
   putStrLn $ "Replacing: " ++ show search_term
-  let replace_term = parse $ lexer replace
+  let replace_term = parseMatch $ lexer replace
   putStrLn $ "With: " ++ show replace_term
   content <- readFile filename
   let text = lines content
