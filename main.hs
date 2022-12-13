@@ -139,6 +139,12 @@ match (Concat x y) r s =
         -- ("a", "b")
       Nothing -> Nothing
       Just (r2, rst2) -> Just (r1 ++ r2, rst2)
+match (Or x y) r s =
+  case match x r s of
+    r1@(Just _) -> r1
+    Nothing -> case match y r s of
+        r2@(Just _) -> r2
+        Nothing -> Nothing
 match (CaptureGroup x) r s = Just ([], [])
 match x y z = error $ "Failed to match: " ++ show z
 
