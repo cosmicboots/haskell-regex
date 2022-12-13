@@ -155,8 +155,13 @@ replaceLine :: RegEx -> ReplaceEx -> String -> String
 replaceLine e r [] = []
 replaceLine e r s@(x : xs) = case match e r s of
   Nothing -> x : replaceLine e r xs -- No match. Move on
-  Just (x, []) -> x
-  Just (x, r) -> x ++ r
+  Just ([], rst) -> x : replaceLine e r xs
+  Just (x1, []) -> replace [x1] r
+  Just (x1, rst) -> replace [x1] r ++ replaceLine e r rst
+
+find = parseMatch $ lexer "a*"
+rep = parseReplace $ lexer "dog"
+
 
 main :: IO ()
 main = do
