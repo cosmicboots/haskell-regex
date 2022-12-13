@@ -126,26 +126,29 @@ match :: RegEx -> ReplaceEx -> String -> Maybe (String, String)
 -- preform the replacement
 --
 -- If the match function doesn't find a complete match, it will return ""
---match e r [] = Nothing
 match (Literal x) r (c : cs) | x == c = Just ([c], cs)
 match (Literal x) r (c : cs) | x /= c = Nothing
 match Wildcard r (c : cs) = Just ([c], cs)
-match (Star x) r [] = Just ([], [])
-match (Star x) r s = match x r s
+--match (Star x) r [] = Just ([], [])
+match (Star x) r s = case match x r s of
+  Nothing -> Just ([], s)
+  Just l@(mat, rst) -> case match (Star x) r rst of
+    Nothing -> Just l
+    Just (k, l) -> Just (mat ++ k, l)
 match (Concat x y) r s =
   case match x r s of
     Nothing -> Nothing
     Just (r1, rst) -> case match y r rst of
-        -- ("a", "b")
       Nothing -> Nothing
       Just (r2, rst2) -> Just (r1 ++ r2, rst2)
 match (Or x y) r s =
   case match x r s of
     r1@(Just _) -> r1
     Nothing -> case match y r s of
-        r2@(Just _) -> r2
-        Nothing -> Nothing
+      r2@(Just _) -> r2
+      Nothing -> Nothing
 match (CaptureGroup x) r s = Just ([], [])
+match e r [] = Nothing
 match x y z = error $ "Failed to match: " ++ show z
 
 replaceLine :: RegEx -> ReplaceEx -> String -> String
@@ -153,6 +156,7 @@ replaceLine e r [] = []
 replaceLine e r s@(x : xs) = case match e r s of
   Nothing -> x : replaceLine e r xs -- No match. Move on
   Just (x, []) -> x
+  Just (x, r) -> x ++ r
 
 main :: IO ()
 main = do
