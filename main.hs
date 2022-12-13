@@ -162,9 +162,9 @@ main :: IO ()
 main = do
   args@[search, replace, filename] <- getArgs
   let search_term = parseMatch $ lexer search
-  putStrLn $ "Replacing: " ++ show search_term
+  --putStrLn $ "Replacing: " ++ show search_term
   let replace_term = parseReplace $ lexer replace
-  putStrLn $ "With: " ++ show replace_term
+  --putStrLn $ "With: " ++ show replace_term
   content <- readFile filename
   let text = lines content
   let replaced = map (replaceLine search_term replace_term) text
