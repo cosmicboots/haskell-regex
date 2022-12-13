@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
+import Debug.Trace
 import Data.Char
 import System.Environment
 
@@ -110,44 +111,39 @@ replace env [] = []
 replace env ((LitChar c) : s) = c : replace env s
 replace env ((CaptureID x) : s) = (env !! x) ++ replace env s
 
-getCap :: RegEx -> String -> [String]
-getCap e [] = []
-getCap (Star x) s = []
-getCap (Literal x) s = []
-getCap Wildcard s = []
-getCap (Concat x y) s = getCap x s ++ getCap y s
-getCap (CaptureGroup x) s = []
+--getCap :: RegEx -> String -> [String]
+--getCap e [] = []
+--getCap (Star x) s = []
+--getCap (Literal x) s = []
+--getCap Wildcard s = []
+--getCap (Concat x y) s = getCap x s ++ getCap y s
+--getCap (CaptureGroup x) s = []
 
-match :: RegEx -> ReplaceEx -> String -> Maybe (String, String)
--- match will iterate through the given string and find the end of the match to
--- the regular expression
---
--- Once the end of the match is found, it will call the replace function to
--- preform the replacement
---
--- If the match function doesn't find a complete match, it will return ""
-match (Literal x) r (c : cs) | x == c = Just ([c], cs)
+match :: RegEx -> ReplaceEx -> String -> Maybe ([String], String, String)
+match (Literal x) r (c : cs) | x == c = Just ([],  [c], cs)
 match (Literal x) r (c : cs) | x /= c = Nothing
-match Wildcard r (c : cs) = Just ([c], cs)
+match Wildcard r (c : cs) = Just ([], [c], cs)
 --match (Star x) r [] = Just ([], [])
 match (Star x) r s = case match x r s of
-  Nothing -> Just ([], s)
-  Just l@(mat, rst) -> case match (Star x) r rst of
+  Nothing -> Just ([], [], s)
+  Just l@(env, mat, rst) -> case match (Star x) r rst of
     Nothing -> Just l
-    Just (k, l) -> Just (mat ++ k, l)
+    Just (env, k, l) -> Just (env, mat ++ k, l)
 match (Concat x y) r s =
   case match x r s of
     Nothing -> Nothing
-    Just (r1, rst) -> case match y r rst of
+    Just (env1, r1, rst) -> case match y r rst of
       Nothing -> Nothing
-      Just (r2, rst2) -> Just (r1 ++ r2, rst2)
+      Just (env2, r2, rst2) -> Just (env1 ++ env2, r1 ++ r2, rst2)
 match (Or x y) r s =
   case match x r s of
     r1@(Just _) -> r1
     Nothing -> case match y r s of
       r2@(Just _) -> r2
       Nothing -> Nothing
-match (CaptureGroup x) r s = Just ([], [])
+match (CaptureGroup x) r s = case match x r s of 
+        Nothing -> Nothing
+        Just (env, mat, rst) -> Just (env ++ [mat], mat, rst)
 match e r [] = Nothing
 match x y z = error $ "Failed to match: " ++ show z
 
@@ -155,13 +151,12 @@ replaceLine :: RegEx -> ReplaceEx -> String -> String
 replaceLine e r [] = []
 replaceLine e r s@(x : xs) = case match e r s of
   Nothing -> x : replaceLine e r xs -- No match. Move on
-  Just ([], rst) -> x : replaceLine e r xs
-  Just (x1, []) -> replace [x1] r
-  Just (x1, rst) -> replace [x1] r ++ replaceLine e r rst
+  Just (env, [], rst) -> x : replaceLine e r xs
+  Just (env, x1, []) -> replace (x1:env) r
+  Just (env, x1, rst) -> replace (x1:env) r ++ replaceLine e r rst
 
-find = parseMatch $ lexer "a*"
-rep = parseReplace $ lexer "dog"
-
+find = parseMatch $ lexer "({he}|{je})llo"
+rep = parseReplace $ lexer "\\1lp"
 
 main :: IO ()
 main = do
