@@ -111,19 +111,10 @@ replace env [] = []
 replace env ((LitChar c) : s) = c : replace env s
 replace env ((CaptureID x) : s) = (env !! x) ++ replace env s
 
---getCap :: RegEx -> String -> [String]
---getCap e [] = []
---getCap (Star x) s = []
---getCap (Literal x) s = []
---getCap Wildcard s = []
---getCap (Concat x y) s = getCap x s ++ getCap y s
---getCap (CaptureGroup x) s = []
-
 match :: RegEx -> ReplaceEx -> String -> Maybe ([String], String, String)
 match (Literal x) r (c : cs) | x == c = Just ([],  [c], cs)
 match (Literal x) r (c : cs) | x /= c = Nothing
 match Wildcard r (c : cs) = Just ([], [c], cs)
---match (Star x) r [] = Just ([], [])
 match (Star x) r s = case match x r s of
   Nothing -> Just ([], [], s)
   Just l@(env, mat, rst) -> case match (Star x) r rst of
