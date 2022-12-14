@@ -154,17 +154,22 @@ base “ab” regex actually gave us the most trouble.
 # Future Extensions
 
 Currently, our `Or` operation runs into some issues with order of precedence.
-As best we can tell, this is an issue with Shift Reducers; the “Or” has lower
-priority than "Concatenation", but "Concatenation" happens first due to it's
-requirement to simplify expressions for other operations. This led us to
-implement `{}` as term coherence, which unfortunately means that `{}` is not
-available for custom repetition counts.
+As best we can tell, this is an issue with Shift Reducers; the `Or` has lower
+priority than `Concat`, but `Concat` happens first due to it’s requirement to
+simplify expressions for other operations. This has led us to implement `{}` as
+term coherence. This, unfortunately, means that `{}` is not available for
+custom repetition counts.
 
 After finding a solution for `Or` precedence, implementation of custom
 repetition should be easy.
 
-Those two points would be the last parts of the code that we would like to add
-to reach full regex search and replace functionality.
+Another issue we have found is that sometimes, `Star (Wildcard)` will, due to its
+greedy implementation, consume too many characters, not allowing the rest of
+the string to match. We have been unable to find a solution for this; in a
+non-functional language, the solution would be to step backwards and try a
+different depth first path.These last parts of the code that we would like to
+add would reach full regex search and replace functionality.
+
 
 # Summary
 
