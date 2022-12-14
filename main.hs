@@ -31,6 +31,7 @@ data RegEx
   | Wildcard
   | CaptureGroup RegEx
   | CapIdRE Int
+  | Range Char Char
   deriving (Show)
 
 type ReplaceEx = [ReplaceTok]
@@ -83,8 +84,10 @@ sr (LBra : Backslash : s) q = sr (PE [Literal '{'] : s) q
 sr (RBra : Backslash : s) q = sr (PE [Literal '}'] : s) q
 sr (OrOp : Backslash : s) q = sr (PE [Literal '|'] : s) q
 -- Repeats
-sr (StarOp : PE (x : xs) : s) q = sr (PE (Star x : xs) : s) q
+sr (StarOp : PE xs : s) q = let x = last xs in sr (PE (init xs ++ [Star x]) : s) q
 sr (PlusOp : PE (x : xs) : s) q = sr (PE (Concat x (Star x) : xs) : s) q -- Use star for plus
+-- Ranges
+sr (RBracket : PE [Literal l, Literal '-', Literal r] : LBracket : s) q = sr (PE [Range l r] : s) q
 -- Wildcard
 sr (WildcardT : s) q = sr (PE [Wildcard] : s) q
 -- Normal Literals
@@ -133,6 +136,7 @@ replaceRE env (Star x) = Star (replaceRE env x)
 replaceRE env (Concat x y) = Concat (replaceRE env x) (replaceRE env y)
 replaceRE env (Or x y) = Or (replaceRE env x) (replaceRE env y)
 replaceRE env (CaptureGroup x) = CaptureGroup (replaceRE env x)
+replaceRE env (Range x y) = Range x y
 replaceRE env (CapIdRE i) =
   if i < length env
     then parseMatch (lexer $ env !! i)
@@ -142,6 +146,8 @@ match :: RegEx -> ReplaceEx -> String -> Maybe ([String], String, String)
 match (Literal x) r (c : cs) | x == c = Just ([], [c], cs)
 match (Literal x) r (c : cs) | x /= c = Nothing
 match Wildcard r (c : cs) = Just ([], [c], cs)
+match (Range x y) r (c : cs) | c >= x && c <= y = Just ([], [c], cs)
+match (Range x y) r (c : cs) = Nothing
 match (Star x) r s = case match x r s of
   Nothing -> Just ([], [], s)
   Just l@(env, mat, rst) -> case match (Star x) r rst of
